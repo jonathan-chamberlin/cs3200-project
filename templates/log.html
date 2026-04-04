@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mt-4 mb-4">➕ Log Food Waste</h2>
+
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="/log">
+
+                    <div class="mb-3">
+                        <label class="form-label">User</label>
+                        <select name="user_id" class="form-select" required>
+                            <option value="">-- Select User --</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}">{{ u.first_name }} {{ u.last_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Food Item</label>
+                        <select name="food_id" class="form-select" required>
+                            <option value="">-- Select Food --</option>
+                            {% for f in foods %}
+                            <option value="{{ f.food_id }}">{{ f.food_name }} ({{ f.category_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Reason for Waste</label>
+                        <select name="reason_id" class="form-select" required>
+                            <option value="">-- Select Reason --</option>
+                            {% for r in reasons %}
+                            <option value="{{ r.id }}">{{ r.reason_description }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Weight (kg)</label>
+                        <input type="number" name="weight" class="form-control"
+                               step="0.01" min="0.01" placeholder="e.g. 0.50" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Date of Waste</label>
+                        <input type="text" name="waste_date" class="form-control"
+                               placeholder="YYYY-MM-DD" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">Log Waste Record</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mt-4 mb-4">📋 Waste History</h2>
+
+<!-- Filter bar -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" action="/history" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">User</label>
+                <select name="user_id" class="form-select">
+                    <option value="">All Users</option>
+                    {% for u in users %}
+                    <option value="{{ u.id }}" {% if sel_user == u.id|string %}selected{% endif %}>
+                        {{ u.first_name }} {{ u.last_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select">
+                    <option value="">All</option>
+                    {% for c in categories %}
+                    <option value="{{ c.category_name }}"
+                        {% if sel_category == c.category_name %}selected{% endif %}>
+                        {{ c.category_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">From</label>
+                <input type="text" name="date_from" class="form-control" placeholder="YYYY-MM-DD" value="{{ sel_from }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">To</label>
+                <input type="text" name="date_to" class="form-control" placeholder="YYYY-MM-DD" value="{{ sel_to }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-success w-100">Filter</button>
+            </div>
+            <div class="col-md-1">
+                <a href="/history" class="btn btn-outline-secondary w-100">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Results table -->
+<div class="card">
+    <div class="card-body">
+        <p class="text-muted">{{ records|length }} record(s) found</p>
+        <table class="table table-hover table-sm">
+            <thead class="table-success">
+                <tr>
+                    <th>Date</th>
+                    <th>User</th>
+                    <th>Food</th>
+                    <th>Category</th>
+                    <th>Reason</th>
+                    <th>Weight (kg)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in records %}
+                <tr>
+                    <td>{{ r.waste_date }}</td>
+                    <td>{{ r.first_name }} {{ r.last_name }}</td>
+                    <td>{{ r.food_name }}</td>
+                    <td>{{ r.category_name }}</td>
+                    <td>{{ r.reason_description }}</td>
+                    <td>
+                        <!-- Inline edit form (Q4) -->
+                        <form method="POST" action="/update/{{ r.record_id }}"
+                              class="d-inline-flex align-items-center gap-1">
+                            <input type="number" name="new_weight" value="{{ r.weight }}"
+                                   step="0.01" min="0.01" class="form-control form-control-sm"
+                                   style="width:80px;">
+                            <button type="submit" class="btn btn-sm btn-outline-primary"
+                                    title="Update weight">✓</button>
+                        </form>
+                    </td>
+                    <td>
+                        <!-- Delete button (Q5) -->
+                        <form method="POST" action="/delete/{{ r.record_id }}"
+                              onsubmit="return confirm('Delete this record?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
