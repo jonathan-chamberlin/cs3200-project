@@ -77,12 +77,53 @@ def dashboard():
     """)
     category_pct = cur.fetchall()
 
+    # Q14 - monthly waste trend
+    cur.execute("""
+        SELECT DATE_FORMAT(fwr.waste_date, '%Y-%m') AS month,
+               SUM(fwr.weight)                        AS total_weight,
+               COUNT(*)                               AS record_count
+        FROM FoodWasteRecords fwr
+        GROUP BY DATE_FORMAT(fwr.waste_date, '%Y-%m')
+        ORDER BY month
+    """)
+    monthly_trend = cur.fetchall()
+
+    # Q15 - leaderboard (least wasteful)
+    cur.execute("""
+        SELECT u.first_name, u.last_name,
+               COALESCE(SUM(fwr.weight), 0) AS total_weight_wasted
+        FROM Users u
+        LEFT JOIN FoodWasteRecords fwr ON u.id = fwr.user_id
+        GROUP BY u.id, u.first_name, u.last_name
+        ORDER BY total_weight_wasted ASC
+    """)
+    leaderboard = cur.fetchall()
+
+    # Q17 - average waste per user per month
+    cur.execute("""
+        SELECT user_monthly.month,
+               ROUND(AVG(user_monthly.monthly_total), 2) AS avg_waste_per_user
+        FROM (
+            SELECT user_id,
+                   DATE_FORMAT(waste_date, '%Y-%m') AS month,
+                   SUM(weight) AS monthly_total
+            FROM FoodWasteRecords
+            GROUP BY user_id, DATE_FORMAT(waste_date, '%Y-%m')
+        ) AS user_monthly
+        GROUP BY user_monthly.month
+        ORDER BY user_monthly.month
+    """)
+    avg_monthly = cur.fetchall()
+
     db.close()
     return render_template('dashboard.html',
                            user_totals=user_totals,
                            category_stats=category_stats,
                            reason_stats=reason_stats,
-                           category_pct=category_pct)
+                           category_pct=category_pct,
+                           monthly_trend=monthly_trend,
+                           leaderboard=leaderboard,
+                           avg_monthly=avg_monthly)
 
 
 
@@ -219,6 +260,80 @@ def delete_record(record_id):
     db.close()
     flash('Record deleted.', 'info')
     return redirect(url_for('history'))
+
+
+# REGISTER USER  (Q1)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        first_name = request.form['first_name']
+        last_name = request.form['last_name']
+        email = request.form['email']
+        phone = request.form.get('phone', '')
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("""
+            INSERT INTO Users (first_name, last_name, email, phone)
+            VALUES (%s, %s, %s, %s)
+        """, (first_name, last_name, email, phone))
+        db.commit()
+        db.close()
+        flash('User registered successfully!', 'success')
+        return redirect(url_for('register'))
+
+    return render_template('register.html')
+
+
+# ADD FOOD ITEM  (Q2)
+
+@app.route('/add-food', methods=['GET', 'POST'])
+def add_food():
+    db = get_db()
+    cur = db.cursor()
+
+    if request.method == 'POST':
+        food_name = request.form['food_name']
+        category_id = request.form['category_id']
+
+        cur.execute("""
+            INSERT INTO FoodItems (food_name, category_id)
+            VALUES (%s, %s)
+        """, (food_name, category_id))
+        db.commit()
+        db.close()
+        flash('Food item added successfully!', 'success')
+        return redirect(url_for('add_food'))
+
+    cur.execute("SELECT id, category_name FROM Categories ORDER BY category_name")
+    categories = cur.fetchall()
+    db.close()
+    return render_template('add_food.html', categories=categories)
+
+
+# MANAGE USERS  (Q6 - update email)
+
+@app.route('/users')
+def users():
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT id, first_name, last_name, email, phone FROM Users ORDER BY first_name")
+    users = cur.fetchall()
+    db.close()
+    return render_template('users.html', users=users)
+
+
+@app.route('/update-email/<int:user_id>', methods=['POST'])
+def update_email(user_id):
+    new_email = request.form['new_email']
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("UPDATE Users SET email = %s WHERE id = %s", (new_email, user_id))
+    db.commit()
+    db.close()
+    flash('Email updated!', 'success')
+    return redirect(url_for('users'))
 
 
 if __name__ == '__main__':
