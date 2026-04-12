@@ -1,118 +1,110 @@
-# Food Waste Tracker - Presentation Script
+# Food Waste Tracker — Poster Presentation Script
 
 **Team:** Xinxiang (Eunice), Yanjie (Candy), Xinyi, Jonathan
-**Total time:** ~5 minutes
+**Format:** Poster walkthrough, ~13 minutes
+**Structure:** First half = setup + queries. Second half = conclusions, implications, expansion, UI.
 
 ---
 
-## Section 1: Introduction & Motivation
-**Speaker:** Eunice
-**On screen:** Poster (full view, then zoom to Background section)
-**Time:** ~45 seconds
+## Part 1: Setup and Queries (~6.5 minutes)
 
-1.3 billion tons of food gets wasted globally every year. Your household alone probably throws out about $1,500 worth. But if you asked most people what they waste the most or why, they couldn't tell you.
+### Introduction & Motivation (~1.5 min)
+**Point at:** Background, Motivation, and Goals section (top left of poster)
 
-Hey everyone, we're Group 18. Our project is a Food Waste Tracker. You can see our full poster here. I'll start with the motivation, then we'll walk through the database design, a demo of the app, and our findings.
+Hey everyone, we're Group 18. We built a Food Waste Tracker.
 
-We built a system that lets individuals track what they waste, browse their history, and see analytics on their patterns. Think of it like a budget tracker, but for food you're throwing out.
+About 1.3 billion tons of food gets wasted globally every year. The average household throws out around $1,500 worth annually. But if you asked most people what they personally waste the most, or why, they couldn't tell you.
 
----
+That's the problem we wanted to solve. We built a system where individuals can log what they throw out, browse their history, and see analytics on their own patterns. Think of it like a budget tracker, but for food you're throwing out. The idea is that if you can actually see what you waste, you can change your behavior. Right now, people just don't have that visibility.
 
-## Section 2: Database Design
-**Speaker:** Candy
-**On screen:** `08_er_diagram.png`
-**Time:** ~1 minute
+But recording data alone isn't useful. The goal was to surface patterns. What categories of food are you wasting the most? What's the reason? Is it because you're cooking too much, or because things are expiring before you get to them? Those are different problems with different solutions, and you need the data to tell them apart.
 
-Here's our ER diagram showing the conceptual design.
+### Database Design (~2 min)
+**Point at:** ER diagram (top right of poster), then Process, Methods and System section
 
-We have five tables, all in Third Normal Form. At the center is FoodWasteRecords, which connects a User to a FoodItem, a WasteReason, a weight, and a date. FoodItems each belong to a Category, so things like "Banana" are under "Fruit" and "Milk" is under "Dairy."
+Here's our ER diagram. We have five tables, all in Third Normal Form.
 
-We separated Categories, FoodItems, and WasteReasons into their own tables instead of storing strings directly in the waste records. Without normalization, you'd have the string "Dairy" repeated in every single dairy waste record. If you wanted to rename it, you'd have to update hundreds of rows. With our design, "Dairy" exists in one row in the Categories table, and everything else just references it by ID.
+FoodWasteRecords is the central table. Each record connects a User to a FoodItem, a WasteReason, a weight, and a date. FoodItems each belong to a Category, so "Banana" is under "Fruit," "Milk" is under "Dairy." Users is its own entity because a user exists independently of any waste they log.
 
-The foreign keys enforce referential integrity. For example, you can't log waste for a user or food item that doesn't exist. We also set CASCADE on updates and RESTRICT on deletes to prevent accidental data loss.
+We separated Categories, FoodItems, and WasteReasons into their own tables instead of storing strings directly in the waste records. Without normalization, you'd have the string "Dairy" repeated in every single dairy waste record. If you wanted to rename it to "Dairy Products," you'd have to update hundreds of rows. With our design, "Dairy" exists in one row in the Categories table and everything else references it by ID. That eliminates redundancy and keeps the data consistent.
 
----
+The foreign keys enforce referential integrity. You can't log waste for a user or food item that doesn't exist in the system. We set CASCADE on updates so if you rename a category, every reference updates automatically. And RESTRICT on deletes, so you can't accidentally delete a food item that has waste records pointing to it. That prevents data loss.
 
-## Section 3: App Demo - Logging Waste
-**Speaker:** Xinyi
-**On screen:** `02_log_waste.png`
-**Time:** ~45 seconds
+We also knew users would want to filter by category, so having Categories as a separate indexed table makes those filter queries fast.
 
-So let me walk you through the app. This is the core screen where you log food waste.
+### Queries (~3 min)
+**Point at:** Example Queries section (middle of poster)
 
-You pick your name from the dropdown, select the food item, choose a reason like "Expired" or "Made too much," enter the weight in kilograms, and pick the date. Hit submit and it's recorded.
+We wrote 17 SQL queries total. I'll walk through the three main groups.
 
-Behind the scenes, this runs an INSERT into FoodWasteRecords. We use parameterized queries throughout the app, meaning user input never gets concatenated into SQL strings directly. That prevents SQL injection attacks. The dropdowns are populated by SELECT queries joining FoodItems with Categories, so you see the food name alongside its category.
+**CRUD operations.** Six queries handle the basics. INSERT for logging new waste records, registering users, and adding food items. SELECT with JOINs for populating the dropdowns and viewing records. UPDATE for editing a record's weight or a user's email. DELETE for removing records. All of these use parameterized queries with %s placeholders, so user input never gets concatenated into SQL strings directly. That prevents SQL injection.
 
----
+**History and filtering.** Four queries handle browsing your waste history. The base query joins across four tables (FoodWasteRecords, FoodItems, Categories, WasteReasons, and Users) to show every record with the food name, category, reason, and weight. Then we built dynamic filtering on top of that. The app builds WHERE clauses based on which filters you set. So you can filter by user, by category, or by date range. If you want to see just your dairy waste from February, you set those filters and it narrows right down.
 
-## Section 4: App Demo - History & Filtering
-**Speaker:** Xinyi
-**On screen:** `03_history_all.png`, then `04_history_filtered.png`
-**Time:** ~45 seconds
+**Analytics.** Seven queries power the dashboard, and these are the most interesting ones. They all use GROUP BY with JOINs and aggregate functions.
 
-Once you've logged some waste, you can view your full history here. It shows every record with the date, food name, category, reason, and weight.
+Query 16 is a good example. It answers: what percentage of total waste does each food category account for? It joins FoodWasteRecords to FoodItems to Categories, groups by category, sums the weight, then divides each category's total by a subquery that gets the overall total. That gives you a percentage breakdown.
 
-But the real utility is in the filters. You can filter by user, by category, or by date range. So if you want to see just your dairy waste from February, you set those filters and it narrows right down.
+Query 17 uses a derived table. The inner query gets each user's monthly total waste. The outer query averages across all users. So you can see the average waste per person per month and compare yourself against that.
 
-On the backend, this is a dynamic query that builds WHERE clauses based on which filters you set. It uses JOINs across four tables to pull in all the details: FoodItems, Categories, WasteReasons, and Users.
-
-You can also edit a record's weight or delete it entirely right from this view. Those are the UPDATE and DELETE operations.
+The other analytics queries cover waste by reason as a bar chart, total waste per user, monthly trends over time, and a leaderboard ranking users from least to most wasteful.
 
 ---
 
-## Section 5: App Demo - User & Food Management
-**Speaker:** Eunice
-**On screen:** `05_register.png`, then `06_add_food.png`, then `07_users.png`
-**Time:** ~30 seconds
+## Part 2: Conclusions, Implications, and Expansion (~6.5 minutes)
 
-Before you can log waste, you need an account and food items in the system. Here's the registration page where you enter your name, email, and phone. And here's where you add new food items and assign them to a category.
+### Findings (~2 min)
+**Point at:** Findings and Products section (bottom left), Key Insights (bottom middle)
 
-On the Users page you can also update someone's email. So between these screens and the logging and history pages, we have full CRUD coverage: create, read, update, and delete across all our main tables.
+So here's what the data actually showed us.
+
+Prepared Food accounts for 28.1% of total waste. Grain is second at 24.2%. Those two categories alone make up over half of all waste. The most common waste reason is "Leftover, not eaten," at about 3.6 kilograms total. "Made too much" and "Expired" are the next biggest reasons.
+
+The main drivers are behavioral. People are cooking more than they need, or they're forgetting about food until it goes bad. Those are two different problems. "Made too much" is a planning problem. You could fix it with better portion sizing. "Expired" is a visibility problem. You didn't know the food was about to go bad, or you forgot it was in the fridge. You could fix that with reminders.
+
+The leaderboard also showed big variation across users. Some people waste significantly more than others. That matters because it means a generic "waste less food" message wouldn't actually help much. The person who wastes mostly from overcooked staples needs different advice than the person who keeps letting dairy expire. Personalized nudges based on each user's data would be more effective than general advice.
+
+### Why the Results Are What They Are (~1.5 min)
+**Point at:** Charts and Key Insights section
+
+Prepared Food being the top category at 28% comes down to shelf life. Prepared meals have the shortest usable window. You cook dinner, don't eat the leftovers within a day or two, and they go bad. Compare that to something like canned goods or dry rice, which last months. The food with the tightest expiration window gets wasted the most. If we'd added an expiration_days column to FoodItems, we could actually correlate waste percentage against shelf life and test that directly. We didn't build that, but the data pattern strongly suggests it.
+
+Grain being second at 24% is similar but for a different reason. Bread and cooked rice go stale fast, but the bigger issue is that dry goods are hard to portion. A cup of uncooked rice makes way more than most people expect. So you get hit from both sides: short shelf life after cooking and consistent overproduction.
+
+"Made too much" being the top reason reinforces this. It's a portion estimation problem. Most people don't weigh or measure. They eyeball it. And the tendency is to make extra "just in case." Over time, those extras add up.
+
+The user variation is interesting too. Some users waste two or three times more than others. We can't tell from the current schema whether that's household size, cooking frequency, or shopping habits. But if we added those fields to the Users table, we could segment users and figure out what actually drives the variation. Right now the data says personalized nudges would help more than generic advice, but we'd need that segmentation data to make the nudges specific.
+
+### How This Project Could Be Expanded (~2 min)
+**Point at:** Conclusion and Next Steps section (bottom right)
+
+Portion-size suggestions would be the most obvious one. If the system knows you consistently waste 30% of the rice you cook, it could suggest you cook less next time. That's a simple calculation based on historical data. You'd add a RecommendedPortions table that tracks suggested amounts per food item per user, and update it as more data comes in.
+
+Expiration reminders are another one. If you logged that you bought milk on Monday, and the system knows from your history that you tend to waste dairy after about five days, it could send you a reminder on Thursday. That would require adding a purchase date field and a notification system, but the underlying data model already supports it because we track food items and dates.
+
+The analytics could also go deeper. Right now we show aggregate trends, but you could add time-of-week analysis. Do you waste more on weekends? After grocery shopping days? That kind of granularity would make the recommendations even more specific.
+
+You could also move from reactive reporting to prediction. If we have three months of someone's data, we could predict which week they're likely to waste the most and send a nudge before it happens. That would mean adding a Predictions table that logs model outputs per user per week. When the confidence is high enough, trigger a notification. Then you'd track whether nudged users actually waste less, which closes the feedback loop.
+
+And you could scale this beyond individual households. If a dining hall used this system, the analytics would help them adjust menu planning. You'd add a Location_ID foreign key to Users to group people by site. The core schema carries over.
+
+### UI Walkthrough (~1 min)
+**Point at:** App screenshots on poster (Log Waste Form, History, User & Food Management, Dashboard)
+
+Quick walkthrough of the interface.
+
+The main screen is the waste logging form. You pick your user from a dropdown, select the food item and category, choose a reason, enter the weight in kilograms, and pick the date. The dropdowns are populated by SELECT queries joining FoodItems with Categories.
+
+The history page shows all records with filters for user, category, and date range. You can edit a record's weight or delete it right from this view.
+
+The dashboard pulls everything together. Pie chart for waste by category, bar chart for waste by reason, total per user, monthly trends, the leaderboard, and average waste per user per month. All seven visualizations update from the same underlying queries.
+
+Between registration, food management, logging, history, and analytics, we have full CRUD coverage across all five tables. The whole thing runs on Flask with MySQL through pymysql.
 
 ---
 
-## Section 6: Analytics Dashboard
-**Speaker:** Jonathan
-**On screen:** `01_dashboard.png`
-**Time:** ~1 minute
+## Wrap-Up (~30 sec)
 
-This is the analytics dashboard, and it's where everything comes together.
+So to sum up: five normalized tables, 17 SQL queries, a web interface that covers the complete user journey from registration through analytics. The data showed that overproduction and expiration are the main waste drivers, and that there's enough variation across users that personalized recommendations would be the most effective next step.
 
-Up top we have waste by category as a pie chart. In our seed data, Prepared Food and Grain are the biggest contributors. Next to that is waste by reason as a bar chart. "Made too much" and "Expired" are the top two, which tells you the main behavioral drivers.
-
-Below that we have total waste per user and a category breakdown table showing each category's percentage of total waste.
-
-The monthly trend chart shows how waste changes over time. And at the bottom we have a leaderboard ranking users from least to most wasteful, plus an average waste per user per month table.
-
-All seven of these analytics come from GROUP BY queries with JOINs and aggregate functions. The category percentage uses a subquery to calculate each category's share of total waste. The monthly average uses a derived table to first get each user's monthly total, then averages across users.
-
-In total we wrote 17 SQL queries: 6 CRUD operations for creating, updating, and deleting records across our tables, 4 history and filtering queries with dynamic WHERE clauses, and 7 analytics queries using GROUP BY, JOINs, subqueries, and derived tables.
-
----
-
-## Section 7: Conclusion
-**Speaker:** Candy
-**On screen:** Poster (zoomed to Conclusion & Key Insights sections)
-**Time:** ~30 seconds
-
-To wrap up: we built a full-stack database application with 5 normalized tables, 17 SQL queries, and a web interface that covers the complete user journey.
-
-Our data showed that "Made too much" and "Expired" are the top waste reasons, and Prepared Food is the most wasted category. Those are actionable findings. If you know your biggest waste driver, you can actually change your behavior.
-
-Thanks for listening. Happy to take any questions.
-
----
-
-## Speaker Assignment Summary
-
-| Section | Speaker | Time |
-|---------|---------|------|
-| 1. Introduction & Motivation | Eunice | ~45s |
-| 2. Database Design (ER diagram) | Candy | ~60s |
-| 3. Logging Waste demo | Xinyi | ~45s |
-| 4. History & Filtering demo | Xinyi | ~45s |
-| 5. User & Food Management demo | Eunice | ~30s |
-| 6. Analytics Dashboard | Jonathan | ~60s |
-| 7. Conclusion | Candy | ~30s |
-| **Total** | | **~5 min** |
+Thanks. Happy to take any questions.
